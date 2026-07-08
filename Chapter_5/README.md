@@ -1,5 +1,7 @@
 # ☁️ Production RAG with Vectara — Ingest, Query, and Correct
 
+![Architecture Diagram](diagram.png)
+
 Part of the [**Hands-On-RAG-Full**](https://github.com/paras160500/Hands-On-RAG-Full) series. This module moves RAG off a local vector store and onto **Vectara** — a managed, cloud-native RAG platform. It covers the full lifecycle: creating a corpus, ingesting documents (both raw file upload and structured JSON indexing), querying with hybrid search and multilingual re-ranking, correcting hallucinations using Vectara's dedicated correction API, and finally wiring everything into a guardrailed enterprise chatbot.
 
 Every notebook talks directly to the **Vectara REST API v2** using plain `requests` — no SDK, so every request is fully visible and inspectable.
