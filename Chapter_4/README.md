@@ -1,72 +1,74 @@
-# 🚀 Advanced RAG Techniques: Caching and Redaction ![Architecture Diagram](diagram.png)
+<div align="center">
 
-Part of the [**Hands-On-RAG-Full**](https://github.com/paras160500/Hands-On-RAG-Full) series, this module delves into sophisticated strategies for enhancing Retrieval-Augmented Generation (RAG) systems. We focus on two critical aspects: **optimizing performance through intelligent caching mechanisms** and **ensuring data privacy via robust redaction techniques**. This chapter provides practical implementations using Jupyter notebooks, demonstrating how to build more efficient and secure RAG applications.
+# 🚀 Advanced RAG Techniques: Caching & Redaction
+
+**Speed up your RAG pipeline with intelligent caching. Protect your users with entity-aware redaction.**
+
+![Architecture Diagram](diagram.png)
+
+</div>
 
 ---
 
-## 💡 What's Inside
+## 📖 Overview
 
-| Notebook | What It Covers |
-|---|---|
-| [`caching.ipynb`](#1-cachingipynb--optimizing-rag-with-caching) | Implement exact-match and semantic caching to boost RAG performance and reduce latency. |
-| [`redaction.ipynb`](#2-redactionipynb--ensuring-data-privacy-with-entity-aware-redaction) | Apply entity-aware redaction to protect sensitive information in RAG outputs. |
+This module dives into two production-critical upgrades for any RAG system:
+
+- ⚡ **Performance** — cut latency and cost with **exact-match** and **semantic caching**
+- 🔒 **Privacy** — strip sensitive PII from context and outputs with **entity-aware redaction**
+
+Everything is delivered as hands-on, runnable **Jupyter notebooks** so you can see each technique work end-to-end.
+
+---
+
+## 📚 What's Inside
+
+| Notebook | Description | Jump To |
+|---|---|:---:|
+| 🗄️ `caching.ipynb` | Exact-match + semantic caching to slash RAG latency | [→](#️-1-cachingipynb--optimizing-rag-with-caching) |
+| 🕵️ `redaction.ipynb` | Entity-aware redaction to protect PII in RAG output | [→](#️-2-redactionipynb--entity-aware-data-privacy) |
 
 ---
 
 ## 🏗️ Architecture
 
+```mermaid
+flowchart TD
+    A["🔍 Query Input"] --> B["⚡ Caching Layer"]
+    B -->|"Exact-Match (Redis)"| B
+    B -->|"Semantic (Embedding Similarity)"| B
+    B -->|"Cache Hit"| G["✅ Final Output"]
+    B -->|"Cache Miss"| C["📦 Base Retriever (FAISS)"]
+    C -->|"Retrieved Documents"| D["🕵️ Redaction Layer (Presidio)"]
+    D -->|"Detect & Anonymize PERSON, PHONE_NUMBER, etc."| E["🧠 Language Model (LLM)"]
+    E -->|"Generated Response"| G
 ```
-┌─────────────────────────────────────────────────────────┐
-│ RAG System with Enhancements                            │
-│ ┌───────────────────────────────────────────────────┐   │
-│ │ Query Input                                       │   │
-│ └───────────────────┬───────────────────────────────┘   │
-│                     │                                   │
-│                     ▼                                   │
-│ ┌───────────────────────────────────────────────────┐   │
-│ │ Caching Layer (Exact-Match & Semantic)            │   │
-│ │   - Redis for Exact-Match Caching                 │   │
-│ │   - Embedding Similarity for Semantic Caching     │   │
-│ └───────────────────┬───────────────────────────────┘   │
-│                     │ Cache Hit / Miss                  │
-│                     ▼                                   │
-│ ┌───────────────────────────────────────────────────┐   │
-│ │ Base Retriever (e.g., FAISS Vector Store)         │   │
-│ └───────────────────┬───────────────────────────────┘   │
-│                     │ Retrieved Documents               │
-│                     ▼                                   │
-│ ┌───────────────────────────────────────────────────┐   │
-│ │ Redaction Layer (Presidio)                        │   │
-│ │   - Detect and Anonymize PII (PERSON, PHONE_NUMBER) │   │
-│ └───────────────────┬───────────────────────────────┘   │
-│                     │ Redacted Context                  │
-│                     ▼                                   │
-│ ┌───────────────────────────────────────────────────┐   │
-│ │ Language Model (LLM)                              │   │
-│ └───────────────────┬───────────────────────────────┘   │
-│                     │ Generated Response                │
-│                     ▼                                   │
-│ ┌───────────────────────────────────────────────────┐   │
-│ │ Final Output                                      │   │
-│ └───────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
-```
+
+> Query → cache check → (on miss) vector search → PII redaction → LLM generation → response. On a cache hit, the vector search and redaction steps are skipped entirely.
 
 ---
 
 ## 📦 Installation
 
-To run the notebooks in this chapter, you'll need the following:
+### 1. Install dependencies
 
 ```bash
-pip install redis langchain-openai langchain-community langchain-text-splitters langchain-core pydantic presidio-analyzer presidio-anonymizer python-dotenv numpy
+pip install redis langchain-openai langchain-community langchain-text-splitters \
+            langchain-core pydantic presidio-analyzer presidio-anonymizer \
+            python-dotenv numpy
 ```
 
-Additionally, ensure you have Docker installed and running for the Redis cache. The `caching.ipynb` notebook includes commands to start a Redis container.
+### 2. Start Redis (via Docker)
 
-### 🔑 Environment Variables
+```bash
+docker run -d --name rag-redis -p 6379:6379 redis:latest
+```
 
-Create a `.env` file in this folder with your OpenAI API key:
+> `caching.ipynb` also includes this command inline — no need to run it separately if you're following along in the notebook.
+
+### 3. Configure environment variables
+
+Create a `.env` file in this folder:
 
 ```env
 OPEN_AI_API=your_openai_api_key
@@ -76,61 +78,82 @@ OPEN_AI_API=your_openai_api_key
 
 ## 🧪 How Each Notebook Works
 
-### 1. `caching.ipynb` — Optimizing RAG with Caching
+### 🗄️ 1. `caching.ipynb` — Optimizing RAG with Caching
 
-This notebook demonstrates two caching strategies to improve the efficiency of RAG systems:
+Two complementary caching strategies, implemented as custom LangChain `BaseRetriever` subclasses:
 
-#### Exact-Match Caching
+<table>
+<tr>
+<td width="50%" valign="top">
 
-Utilizes a hash-based lookup with Redis. If an incoming query's hash matches a previously cached query, the stored results are returned instantly, bypassing the computationally intensive vector search. This is ideal for frequently repeated queries.
+**🎯 Exact-Match Caching**
+
+Hashes each query with SHA-256 and looks it up in Redis. Identical queries return instantly — no vector search needed.
+
+Best for **frequently repeated** queries.
 
 ```python
 class CachedRetriever(BaseRetriever):
-    # ... (implementation details)
+    def _get_relevant_documents(self, query):
+        query_hash = hashlib.sha256(
+            query.encode("utf-8")
+        ).hexdigest()
 
-    def _get_relevant_documents(self, query: str) -> List[Document]:
-        query_hash = hashlib.sha256(query.encode('utf-8')).hexdigest()
-        cached_result = cache.get(query_hash)
-        if cached_result:
-            print("Cache Hit! Skipping the vector search")
-            # ... (deserialize and return)
+        cached = cache.get(query_hash)
+        if cached:
+            print("✅ Cache Hit — skipping vector search")
+            return deserialize(cached)
 
-        print("Cache Miss, Performing the vector search ... ")
+        print("❌ Cache Miss — running vector search")
         results = self._base_retriever.invoke(query)
-        cache.setex(query_hash, self._cache_ttl, json.dumps(docs_data))
+        cache.setex(
+            query_hash, self._cache_ttl,
+            json.dumps(docs_data)
+        )
         return results
 ```
 
-#### Semantic Caching
+</td>
+<td width="50%" valign="top">
 
-Extends caching by using embedding similarity. Queries that are semantically similar, even if phrased differently, can trigger a cache hit. This is achieved by comparing the embedding of the new query with stored embeddings of previous queries using cosine similarity.
+**🧠 Semantic Caching**
+
+Compares the new query's **embedding** against cached query embeddings via cosine similarity. Catches rephrased questions that mean the same thing.
+
+Best for **natural, varied** phrasing.
 
 ```python
 class SemanticCachedRetriever(BaseRetriever):
-    # ... (implementation details)
-
-    def _find_similar_cached(self, query_embedding: np.ndarray) -> Optional[Tuple[List[Document], str, float]]:
-        # ... (cosine similarity calculation)
+    def _find_similar_cached(self, query_embedding):
+        # cosine similarity vs cached embeddings
         if best_similarity >= self._similarity_threshold:
             return best_match, best_query, best_similarity
         return None
 
-    def _get_relevant_documents(self, query: str) -> List[Document]:
-        query_embedding = np.array(self._embeddings.embed_query(query))
-        cache_hit = self._find_similar_cached(query_embedding)
-        if cache_hit:
-            print(f"Semantic Cache hit. Similarity : {similarity}")
-            # ... (return cached docs)
+    def _get_relevant_documents(self, query):
+        embedding = np.array(
+            self._embeddings.embed_query(query)
+        )
+        hit = self._find_similar_cached(embedding)
+        if hit:
+            print(f"✅ Semantic hit — similarity {hit[2]:.2f}")
+            return hit[0]
 
-        print("Semantic Cache Miss. Perorming vector search...")
+        print("❌ Semantic miss — running vector search")
         results = self._base_retriever.invoke(query)
-        # ... (store new query and results in cache)
+        # cache new query + embedding + results
         return results
 ```
 
-### 2. `redaction.ipynb` — Ensuring Data Privacy with Entity-Aware Redaction
+</td>
+</tr>
+</table>
 
-This notebook demonstrates how to implement entity-aware redaction to protect sensitive information within the RAG pipeline. It uses the `presidio` library to identify and replace Personally Identifiable Information (PII) like names and phone numbers with generic placeholders or their entity types.
+---
+
+### 🕵️ 2. `redaction.ipynb` — Entity-Aware Data Privacy
+
+Uses Microsoft's **Presidio** to detect and anonymize PII (like names and phone numbers) before it ever reaches the LLM or the end user.
 
 ```python
 from presidio_analyzer import AnalyzerEngine
@@ -141,30 +164,36 @@ def entity_aware_redaction(text):
     analyzer = AnalyzerEngine()
     anonymizer = AnonymizerEngine()
 
-    results = analyzer.analyze(text=text, entities=['PERSON', 'PHONE_NUMBER'], language='en')
+    results = analyzer.analyze(
+        text=text,
+        entities=["PERSON", "PHONE_NUMBER"],
+        language="en"
+    )
 
-    anonymized_result = anonymizer.anonymize(
+    anonymized = anonymizer.anonymize(
         text=text,
         analyzer_results=results,
         operators={
             "PERSON": OperatorConfig("replace", {"new_value": ""}),
-            "PHONE_NUMBER": OperatorConfig("replace", {"new_value": ""})
+            "PHONE_NUMBER": OperatorConfig("replace", {"new_value": ""}),
         }
     )
-    return anonymized_result.text
-
-input_text = "Dr. Paras called 123-456-7890"
-output_text = entity_aware_redaction(input_text)
-print(output_text) # Expected: "Dr. called "
+    return anonymized.text
 ```
+
+**Example**
+
+| Input | Output |
+|---|---|
+| `Dr. Paras called 123-456-7890` | `Dr.  called ` |
 
 ---
 
-## 📁 Sample Documents
+## 📁 Sample Data
 
-| File | Used In | Content |
+| File | Used In | Description |
 |---|---|---|
-| `sample_docs.txt` | `caching.ipynb` | Contains sample text related to AI, ML, Deep Learning, NLP, and RAG for demonstration of caching. |
+| `sample_docs.txt` | `caching.ipynb` | Sample passages on AI, ML, Deep Learning, and NLP for caching demos |
 
 ---
 
@@ -172,34 +201,36 @@ print(output_text) # Expected: "Dr. called "
 
 | Layer | Tool |
 |---|---|
-| RAG Framework | Langchain |
-| LLM & Embeddings | OpenAI (via `langchain-openai`) |
-| Vector Store | FAISS (via `langchain-community`) |
-| Exact-Match Caching | Redis |
-| Semantic Caching | Custom implementation with NumPy |
-| PII Detection & Redaction | Presidio (via `presidio-analyzer`, `presidio-anonymizer`) |
-| Environment Management | `python-dotenv` |
+| 🔗 RAG Framework | LangChain |
+| 🧠 LLM & Embeddings | OpenAI (`langchain-openai`) |
+| 📦 Vector Store | FAISS (`langchain-community`) |
+| ⚡ Exact-Match Cache | Redis |
+| 🧮 Semantic Cache | Custom, NumPy-based cosine similarity |
+| 🕵️ PII Detection & Redaction | Presidio (`presidio-analyzer`, `presidio-anonymizer`) |
+| ⚙️ Config | `python-dotenv` |
 
 ---
 
 ## 🧠 Key Learnings
 
-- **Caching is crucial for RAG performance:** Both exact-match and semantic caching significantly reduce latency and computational costs by avoiding redundant vector searches and LLM calls.
-- **Semantic caching enhances user experience:** By recognizing semantically similar queries, it provides faster responses even when users rephrase their questions, leading to a more fluid interaction.
-- **Data privacy is paramount in RAG:** Implementing entity-aware redaction ensures that sensitive information is protected, making RAG systems suitable for applications handling confidential data.
-- **Presidio offers robust PII detection:** It provides a flexible framework for identifying and anonymizing various types of PII, which is essential for compliance and security.
+- ⚡ **Caching is crucial for RAG performance** — both strategies cut latency and cost by avoiding redundant vector searches and LLM calls.
+- 🗣️ **Semantic caching improves UX** — rephrased questions still hit the cache, keeping interactions fast and fluid.
+- 🔒 **Privacy is non-negotiable** — entity-aware redaction makes RAG systems viable for sensitive or regulated data.
+- 🎯 **Presidio is a flexible PII toolkit** — supports a wide range of entity types out of the box, useful for compliance-driven use cases.
 
 ---
 
-## 🚀 Future Improvements
+## 🛣️ Roadmap
 
-- Integrate a more persistent semantic cache solution (e.g., a dedicated vector database for cache embeddings) rather than in-memory storage.
-- Explore advanced redaction techniques, such as format-preserving anonymization or token-level redaction within the LLM generation process.
-- Implement a cache invalidation strategy based on document updates or time-based policies.
-- Extend redaction to cover more entity types and custom PII patterns.
+- [ ] Persistent semantic cache (dedicated vector DB instead of in-memory storage)
+- [ ] Format-preserving / token-level redaction during generation
+- [ ] Cache invalidation strategy (time-based or document-update triggered)
+- [ ] Support for additional/custom PII entity types
 
 ---
 
 ## 👨‍💻 Author
 
-Built for learning: Advanced RAG techniques focusing on caching for performance and redaction for privacy. Made by **PARAS PATEL**.
+Built for learning — advanced RAG techniques focused on **caching for performance** and **redaction for privacy**.
+
+**Made by Paras Patel** · Part of [Hands-On-RAG-Full](https://github.com/paras160500/Hands-On-RAG-Full)
